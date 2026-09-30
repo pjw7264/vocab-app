@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1117">
+<title>영단어 암기용 프로그램</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface-2: #242836;
+    --border: #2f3445;
+    --text: #e8eaf0;
+    --muted: #8b91a5;
+    --accent: #6c8cff;
+    --accent-2: #9b7bff;
+    --ok: #3ecf8e;
+    --bad: #ff5d6c;
+    --warn: #ffb547;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Segoe UI", sans-serif;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; justify-content: center;
+  }
+  #app { width: 100%; max-width: 520px; padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
+  button { font: inherit; color: inherit; cursor: pointer; border: none; }
+  .hidden, [hidden] { display: none !important; }
+
+  /* Header */
+  .topbar { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+  .topbar h1 { font-size: 1.15rem; margin: 0; flex: 1; }
+  .icon-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; width: 40px; height: 40px; font-size: 1.1rem; display: grid; place-items: center; }
+  .counter { color: var(--muted); font-size: .9rem; font-variant-numeric: tabular-nums; }
+
+  /* Bars */
+  .bar { height: 8px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: inherit; transition: width .25s ease; }
+  .timer-wrap { display: flex; align-items: center; gap: 10px; }
+  .timer-wrap .bar { flex: 1; height: 6px; }
+  .timer-wrap .bar > i { background: var(--ok); transition: none; }
+  .timer-wrap .bar.warn > i { background: var(--warn); }
+  .timer-wrap .bar.danger > i { background: var(--bad); }
+  .timer-num { width: 36px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: .9rem; }
+
+  /* Home */
+  .hero { padding: 8px 2px 4px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  .hero p { margin: 0; color: var(--muted); }
+  .section-label { color: var(--muted); font-size: .8rem; font-weight: 600; letter-spacing: .06em; margin: 10px 2px 0; }
+  .mode { width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; gap: 14px; align-items: center; transition: transform .1s, border-color .2s; }
+  .mode:active { transform: scale(.98); }
+  .mode:hover { border-color: var(--accent); }
+  .mode.split { cursor: default; align-items: flex-start; }
+  .mode.split:active { transform: none; }
+  .split-body { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+  .split-btns { display: flex; gap: 8px; }
+  .split-btns .btn { flex: 1; padding: 11px 8px; font-size: .95rem; }
+  .split-btns .btn:active { transform: scale(.97); }
+  .mode .num { flex: none; width: 44px; height: 44px; border-radius: 12px; background: var(--surface-2); display: grid; place-items: center; font-weight: 700; color: var(--accent); }
+  .mode b { display: block; margin-bottom: 2px; }
+  .mode span { color: var(--muted); font-size: .88rem; }
+  .wordlist-toggle { background: none; color: var(--muted); font-size: .9rem; padding: 8px; text-decoration: underline; }
+  .wordlist { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .wordlist .row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; padding: 10px 14px; border-top: 1px solid var(--border); font-size: .92rem; }
+  .wordlist .row:first-child { border-top: none; }
+  .wordlist .row em { font-style: normal; color: var(--muted); font-size: .85rem; }
+  .wordlist .row .m { grid-column: 1 / -1; color: var(--text); opacity: .85; }
+
+  /* Card */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 28px 20px; text-align: center; min-height: 240px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; position: relative; }
+  .card.clickable { cursor: pointer; user-select: none; }
+  .word { font-size: clamp(1.9rem, 9vw, 2.6rem); font-weight: 800; letter-spacing: -.01em; word-break: break-word; }
+  .pronun { color: var(--accent); font-size: 1.1rem; }
+  .meaning { font-size: 1.3rem; font-weight: 600; margin-top: 8px; padding-top: 14px; border-top: 1px dashed var(--border); width: 100%; }
+  .hint { color: var(--muted); font-size: .85rem; }
+  .speak { position: absolute; top: 12px; right: 12px; }
+
+  /* Buttons */
+  .row-btns { display: flex; gap: 10px; }
+  .row-btns > * { flex: 1; }
+  .btn { background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; font-weight: 600; font-size: 1rem; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: transparent; color: #fff; }
+  .btn.ok { background: rgba(62,207,142,.15); border-color: var(--ok); color: var(--ok); }
+  .btn.bad { background: rgba(255,93,108,.12); border-color: var(--bad); color: var(--bad); }
+
+  /* Choices */
+  .choices { display: grid; gap: 10px; }
+  .choice { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; text-align: left; font-size: 1rem; transition: border-color .15s, background .15s; }
+  .choice:hover:not(:disabled) { border-color: var(--accent); }
+  .choice.correct { background: rgba(62,207,142,.15); border-color: var(--ok); }
+  .choice.wrong { background: rgba(255,93,108,.12); border-color: var(--bad); }
+  .choice:disabled { cursor: default; }
+
+  /* Typing */
+  .type-input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; font: inherit; font-size: 1.1rem; color: var(--text); outline: none; }
+  .type-input:focus { border-color: var(--accent); }
+  .feedback { text-align: center; font-weight: 600; min-height: 1.5em; }
+  .feedback.ok { color: var(--ok); }
+  .feedback.bad { color: var(--bad); }
+
+  /* Match */
+  .match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .match-col { display: grid; gap: 10px; align-content: start; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 10px; min-height: 60px; font-size: .95rem; text-align: center; word-break: keep-all; overflow-wrap: anywhere; transition: opacity .25s, transform .1s, border-color .15s, background .15s; }
+  .tile.en { font-weight: 700; }
+  .tile.sel { border-color: var(--accent); background: rgba(108,140,255,.15); }
+  .tile.done { opacity: 0; pointer-events: none; transform: scale(.95); }
+  .tile.shake { animation: shake .35s; border-color: var(--bad); background: rgba(255,93,108,.12); }
+  .tile.missed { border-color: var(--bad); opacity: .6; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+  /* Result */
+  .score { text-align: center; padding: 22px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; }
+  .score .big { font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .score p { margin: 4px 0 0; color: var(--muted); }
+  .wrong-list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .wrong-list .row { padding: 12px 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px; }
+  .wrong-list .row:first-child { border-top: none; }
+  .wrong-list .row b { font-size: 1.05rem; }
+  .wrong-list .row em { font-style: normal; color: var(--accent); font-size: .85rem; }
+  .wrong-list .row span { color: var(--muted); font-size: .92rem; }
+  .wrong-list .row small { color: var(--bad); font-size: .8rem; }
+  .empty { text-align: center; color: var(--ok); padding: 18px; }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+
+  /* 단어장 / 입력 / 기록 */
+  .deck-bar { width: 100%; text-align: left; background: linear-gradient(135deg, rgba(108,140,255,.14), rgba(155,123,255,.10)); border: 1px solid rgba(108,140,255,.35); border-radius: var(--radius); padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .deck-bar > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .deck-bar small { color: var(--muted); font-size: .75rem; }
+  .deck-bar b { font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .deck-bar span { color: var(--muted); font-size: .85rem; }
+  .chev { color: var(--accent); font-weight: 600; font-size: .9rem; flex: none; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .panel h2 { margin: 0; font-size: 1rem; }
+  .help { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.6; }
+  .field { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 16px; color: var(--text); outline: none; }  /* 16px 미만이면 iPhone이 입력 시 화면을 확대함 */
+  .field:focus { border-color: var(--accent); }
+  textarea.field { min-height: 130px; resize: vertical; line-height: 1.5; }
+  code { background: var(--surface-2); padding: 1px 6px; border-radius: 5px; font-size: .85em; }
+  .status { font-size: .88rem; color: var(--muted); line-height: 1.5; }
+  .status:empty { display: none; }
+  .status.ok { color: var(--ok); }
+  .status.bad { color: var(--bad); }
+  .edit-list { display: flex; flex-direction: column; gap: 12px; }
+  .edit-row { display: grid; grid-template-columns: 1fr 1fr 32px; gap: 6px; }
+  .edit-row + .edit-row { padding-top: 12px; border-top: 1px solid var(--border); }
+  .edit-row .field { padding: 8px 10px; }
+  .edit-row .m { grid-column: 1 / 3; }
+  .edit-row .del { grid-column: 3; grid-row: 1 / 3; background: none; color: var(--muted); font-size: 1.1rem; }
+  .btn.sm { padding: 10px 12px; font-size: .9rem; border-radius: 10px; }
+  .btn.danger-text { color: var(--bad); }
+  label.btn { display: block; text-align: center; cursor: pointer; }
+  .tag { display: inline-block; font-size: .72rem; font-style: normal; padding: 2px 8px; border-radius: 99px; background: var(--surface-2); color: var(--muted); margin-left: 6px; vertical-align: middle; white-space: nowrap; }
+  .tag.cur { background: rgba(108,140,255,.2); color: var(--accent); }
+  .tabs { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 4px; gap: 4px; }
+  .tabs button { flex: 1; padding: 9px; border-radius: 9px; background: none; color: var(--muted); font-weight: 600; }
+  .tabs button.on { background: var(--surface-2); color: var(--text); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 6px; text-align: center; }
+  .stat b { display: block; font-size: 1.3rem; }
+  .stat span { color: var(--muted); font-size: .78rem; }
+  .rec { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .rec-head { width: 100%; background: none; text-align: left; padding: 12px 14px; display: flex; align-items: center; gap: 12px; }
+  .rec-head .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .rec-head .info b { font-size: .95rem; }
+  .rec-head .info span { color: var(--muted); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rec-body { border-top: 1px solid var(--border); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .pct { flex: none; width: 52px; text-align: center; font-weight: 800; font-size: 1.1rem; }
+  .pct.hi { color: var(--ok); } .pct.mid { color: var(--warn); } .pct.lo { color: var(--bad); }
+  .mini-list { display: flex; flex-direction: column; gap: 6px; font-size: .9rem; }
+  .mini-list div { display: flex; gap: 10px; align-items: baseline; }
+  .mini-list b { flex: none; width: 42%; overflow-wrap: anywhere; }
+  .mini-list span { flex: 1; color: var(--muted); }
+  .ocr-preview { max-width: 100%; max-height: 180px; border-radius: 10px; object-fit: contain; align-self: center; }
+  .modal { position: fixed; inset: 0; background: rgba(5,6,10,.72); display: grid; place-items: center; padding: 16px; z-index: 10; }
+  .modal-box { width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+  .modal-box p { margin: 0; line-height: 1.6; white-space: pre-line; }
+  .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--border); padding: 10px 16px; border-radius: 99px; font-size: .9rem; z-index: 11; max-width: calc(100% - 32px); text-align: center; }
+  button:focus-visible, .field:focus-visible, .type-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+  .link { background: none; color: var(--accent); font-size: .9rem; padding: 4px; text-decoration: underline; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* =====================================================
+   단어 데이터 — 단어장 사진에서 추출한 순서대로
+   구조: { word: "단어", pronun: "한글발음", mean: "뜻" }
+   ===================================================== */
+const DEFAULT_WORDS = [
+  { word: "attendee", pronun: "어텐디", mean: "참석자" },
+  { word: "support", pronun: "서포트", mean: "지지, 지원" },
+  { word: "fee", pronun: "피", mean: "수수료, 요금" },
+  { word: "conclusion", pronun: "컨클루전", mean: "결론" },
+  { word: "decision", pronun: "디시전", mean: "결정, 판단" },
+  { word: "permission", pronun: "퍼미션", mean: "허락, 허가" },
+  { word: "expertise", pronun: "엑스퍼티즈", mean: "전문 지식" },
+  { word: "failure", pronun: "페일리어", mean: "실패; 고장" },
+  { word: "solution", pronun: "솔루션", mean: "해결" },
+  { word: "advancement", pronun: "어드밴스먼트", mean: "진보, 발전" },
+  { word: "site", pronun: "사이트", mean: "현장, 장소" },
+  { word: "material", pronun: "머티리얼", mean: "재료, 자료" },
+  { word: "matter", pronun: "매터", mean: "문제, 상황" },
+  { word: "exception", pronun: "익셉션", mean: "예외, 제외" },
+  { word: "profit", pronun: "프라핏", mean: "이익, 이윤" },
+  { word: "standard", pronun: "스탠더드", mean: "표준, 수준" },
+  { word: "priority", pronun: "프라이오러티", mean: "우선순위" },
+  { word: "distribution", pronun: "디스트리뷰션", mean: "배분, 배포" },
+  { word: "possibility", pronun: "파서빌리티", mean: "가능성" },
+  { word: "repetition", pronun: "레퍼티션", mean: "반복" },
+];
+
+/* ---------- 저장소 (브라우저 localStorage — 이 브라우저에 계속 남음) ---------- */
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+};
+const storageOK = LS.set("vocab.ping", 1);
+let decks = LS.get("vocab.decks", null);      // 단어장: { id, name, created, words: [{ word, pronun, mean }] }
+if (!Array.isArray(decks) || !decks.length) decks = [{ id: "toeic-20", name: "토익 필수 어휘 20", created: Date.now(), words: DEFAULT_WORDS }];
+let records = LS.get("vocab.history", []);    // 학습 기록: { id, deckId, deckName, mode, retry, date, total, correct, wrong }
+let deck = decks.find(d => d.id === LS.get("vocab.current", "")) || decks[0];
+let WORDS = deck.words;
+const saveDecks = () => LS.set("vocab.decks", decks);
+const saveHistory = () => LS.set("vocab.history", records);
+function useDeck(d) { deck = d; WORDS = d.words; LS.set("vocab.current", d.id); }
+
+const MODES = {
+  flash: { id: "1-1", title: "발음 보고 뜻 보기", desc: "카드를 눌러 뜻을 확인해요" },
+  listen: { id: "1-2", title: "듣고 뜻 맞추기", desc: "발음을 듣고 4지선다로 맞혀요" },
+  type: { id: "2-1", title: "타이핑 테스트 · 랜덤", desc: "10초 안에 한글 뜻을 입력해요" },
+  typeOrder: { id: "2-1", title: "타이핑 테스트 · 순서대로", desc: "10초 안에 한글 뜻을 입력해요" },
+  match: { id: "2-2", title: "짝 맞추기", desc: "20초 안에 5쌍을 연결해요" },
+};
+const TYPE_TIME = 10, MATCH_TIME = 20, MATCH_SET = 5;
+
+const app = document.getElementById("app");
+let state = null;       // 현재 세션
+let timer = null;       // 현재 타이머
+let screen = "home";    // 현재 화면 (동기화 후 다시 그리기용)
+
+/* ---------- 유틸 ---------- */
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pron = w => w.pronun ? `<div class="pronun">[${esc(w.pronun)}]</div>` : "";
+const fmtDate = t => new Date(t).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const pctOf = r => r.total ? Math.round(r.correct / r.total * 100) : 0;
+const pctClass = p => p >= 80 ? "hi" : p >= 50 ? "mid" : "lo";
+const modeName = r => `${MODES[r.mode]?.id || ""}. ${MODES[r.mode]?.title || r.mode}${r.retry ? " · 오답" : ""}`;
+const norm = s => s.replace(/\([^)]*\)|\[[^\]]*\]|~/g, "").replace(/[\s.·…'"!?]/g, "").toLowerCase();
+
+function isCorrectMeaning(input, mean) {
+  if (!norm(input)) return false;
+  // 뜻이 여러 개면 순서와 상관없이 그중 하나만 맞아도 정답
+  // 입력도 쉼표·공백 등으로 나눠서, 조각 하나라도 뜻과 일치하면 정답 ("지원, 지지" / "지원 지지" / "요금")
+  const means = new Set([mean, ...mean.split(/[,;/、]/)].map(norm).filter(Boolean));
+  const tries = [input, ...input.split(/[,;/、]/), ...input.split(/[,;/、\s]+/)].map(norm).filter(Boolean);
+  return tries.some(t => means.has(t));
+}
+
+/* ---------- 음성 ---------- */
+let enVoice = null;
+function pickVoice() {
+  const vs = speechSynthesis.getVoices();
+  enVoice = vs.find(v => /en[-_]US/i.test(v.lang) && /Google|Samantha|Microsoft/i.test(v.name))
+         || vs.find(v => /en[-_]US/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
+}
+if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-US"; u.rate = 0.9;
+  if (enVoice) u.voice = enVoice;
+  speechSynthesis.speak(u);
+}
+
+/* ---------- 타이머 ---------- */
+function startTimer(seconds, onEnd) {
+  stopTimer();
+  const end = performance.now() + seconds * 1000;
+  const bar = document.getElementById("tbar"), num = document.getElementById("tnum");
+  const tick = () => {
+    const left = Math.max(0, end - performance.now());
+    const ratio = left / (seconds * 1000);
+    if (bar) {
+      bar.firstElementChild.style.width = (ratio * 100) + "%";
+      bar.classList.toggle("warn", ratio <= .5 && ratio > .25);
+      bar.classList.toggle("danger", ratio <= .25);
+    }
+    if (num) num.textContent = Math.ceil(left / 1000) + "s";
+    if (left <= 0) { timer = null; onEnd(); return; }
+    timer = requestAnimationFrame(tick);
+  };
+  timer = requestAnimationFrame(tick);
+}
+function stopTimer() { if (timer) cancelAnimationFrame(timer); timer = null; }
+
+/* ---------- 공통 레이아웃 ---------- */
+function header(done, total, withTimer) {
+  const m = MODES[state.mode];
+  return `
+    <div class="topbar">
+      <button class="icon-btn" onclick="goHome()" aria-label="홈">←</button>
+      <h1>${m.id}. ${m.title}${state.retry ? " · 오답" : ""}</h1>
+      <span class="counter">${done} / ${total}</span>
+    </div>
+    <div class="bar" aria-label="진행도"><i style="width:${total ? done / total * 100 : 0}%"></i></div>
+    ${withTimer ? `<div class="timer-wrap"><div class="bar" id="tbar"><i style="width:100%"></i></div><span class="timer-num" id="tnum"></span></div>` : ""}`;
+}
+
+/* ---------- 홈 ---------- */
+function goHome() {
+  stopTimer();
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  state = null; screen = "home";
+  const last = records.find(r => r.deckId === deck.id);
+  app.innerHTML = `
+    <div class="hero"><h1>📘 단어 학습</h1></div>
+    <button class="deck-bar" onclick="goDecks()">
+      <div>
+        <small>현재 단어장</small>
+        <b>${esc(deck.name)}</b>
+        <span>${WORDS.length}개 단어 · ${last ? `최근 ${pctOf(last)}% (${fmtDate(last.date)})` : "아직 학습 기록 없음"}</span>
+      </div>
+      <span class="chev">바꾸기 ›</span>
+    </button>
+    <div class="row-btns">
+      <button class="btn sm" onclick="goEditor()">➕ 새 단어 넣기</button>
+      <button class="btn sm" onclick="goHistory()">📊 학습 기록</button>
+    </div>
+    <div class="section-label">1단계 · 익히기</div>
+    ${modeBtn("flash")}${modeBtn("listen")}
+    <div class="section-label">2단계 · 테스트</div>
+    <div class="mode split">
+      <div class="num">2-1</div>
+      <div class="split-body">
+        <div><b>타이핑 테스트</b><span>10초 안에 한글 뜻을 입력해요</span></div>
+        <div class="split-btns">
+          <button class="btn" onclick="startMode('type')">🔀 랜덤</button>
+          <button class="btn" onclick="startMode('typeOrder')">🔢 순서대로</button>
+        </div>
+      </div>
+    </div>
+    ${modeBtn("match")}
+    <button class="wordlist-toggle" onclick="toggleList(this)">전체 단어 보기</button>
+    <div class="wordlist hidden" id="wl">
+      ${WORDS.map(w => `<div class="row"><b>${esc(w.word)}</b><em>${esc(w.pronun || "")}</em><div class="m">${esc(w.mean)}</div></div>`).join("")}
+    </div>`;
+}
+const modeBtn = k => `<button class="mode" onclick="startMode('${k}')"><div class="num">${MODES[k].id}</div><div><b>${MODES[k].title}</b><span>${MODES[k].desc}</span></div></button>`;
+function toggleList(btn) {
+  const wl = document.getElementById("wl");
+  wl.classList.toggle("hidden");
+  btn.textContent = wl.classList.contains("hidden") ? "전체 단어 보기" : "단어 목록 닫기";
+}
+
+/* ---------- 세션 시작 ---------- */
+function startMode(mode, pool, retry = false) {
+  pool = pool || WORDS;
+  screen = "study";
+  state = { mode, retry, items: (mode === "flash" || mode === "typeOrder") ? pool.slice() : shuffle(pool), idx: 0, wrong: [], correct: 0 };
+  ({ flash: renderFlash, listen: renderListen, type: renderType, typeOrder: renderType, match: startMatch })[mode]();
+}
+function addWrong(w, detail) {
+  if (!state.wrong.some(x => x.w === w)) state.wrong.push({ w, detail });
+}
+
+/* ---------- 1-1 플래시카드 ---------- */
+function renderFlash() {
+  const s = state, w = s.items[s.idx];
+  s.revealed = s.revealed || false;
+  app.innerHTML = `
+    ${header(s.idx + (s.marked?.[s.idx] ? 1 : 0), s.items.length)}
+    <div class="card clickable" onclick="flipFlash()">
+      <button class="icon-btn speak" onclick="event.stopPropagation(); speak(state.items[state.idx].word)" aria-label="발음 듣기">🔊</button>
+      <div class="word">${esc(w.word)}</div>
+      ${pron(w)}
+      ${s.revealed ? `<div class="meaning">${esc(w.mean)}</div>` : `<div class="hint">탭해서 뜻 보기</div>`}
+    </div>
+    ${s.revealed ? `
+    <div class="row-btns">
+      <button class="btn bad" onclick="markFlash(false)">몰랐어요</button>
+      <button class="btn ok" onclick="markFlash(true)">알았어요</button>
+    </div>` : ""}
+    <div class="row-btns">
+      <button class="btn" onclick="moveFlash(-1)" ${s.idx === 0 ? "disabled" : ""}>← 이전</button>
+      <button class="btn" onclick="moveFlash(1)">${s.idx === s.items.length - 1 ? "완료" : "다음 →"}</button>
+    </div>`;
+}
+function flipFlash() { state.revealed = !state.revealed; renderFlash(); }
+function moveFlash(d) {
+  const s = state;
+  if (d > 0 && s.idx === s.items.length - 1) return showResult();
+  s.idx = Math.max(0, s.idx + d); s.revealed = false; renderFlash();
+}
+function markFlash(known) {
+  const s = state, w = s.items[s.idx];
+  s.marked = s.marked || {};
+  s.marked[s.idx] = known ? "ok" : "bad";
+  moveFlash(1);
+}
+
+/* ---------- 1-2 듣고 뜻 맞추기 ---------- */
+function renderListen() {
+  const s = state;
+  if (s.idx >= s.items.length) return showResult();
+  const w = s.items[s.idx];
+  const others = shuffle(WORDS.filter(x => x !== w && x.mean !== w.mean)).slice(0, 3);
+  s.choices = shuffle([w, ...others]);
+  app.innerHTML = `
+    ${header(s.idx, s.items.length)}
+    <div class="card">
+      <button class="btn primary" style="width:96px;height:96px;border-radius:50%;font-size:2.2rem" onclick="speak(state.items[state.idx].word)" aria-label="다시 듣기">🔊</button>
+      <div class="hint">버튼을 눌러 다시 들을 수 있어요</div>
+      <div id="reveal" class="hidden"><div class="word">${esc(w.word)}</div>${pron(w)}</div>
+    </div>
+    <div class="choices">
+      ${s.choices.map((c, i) => `<button class="choice" data-i="${i}" onclick="pickListen(${i})">${i + 1}. ${esc(c.mean)}</button>`).join("")}
+    </div>`;
+  speak(w.word);   // 탭 직후 바로 재생해야 iPhone에서도 소리가 남
+}
+function pickListen(i) {
+  const s = state, w = s.items[s.idx], picked = s.choices[i];
+  const btns = app.querySelectorAll(".choice");
+  btns.forEach((b, j) => { b.disabled = true; if (s.choices[j] === w) b.classList.add("correct"); });
+  if (picked === w) s.correct++;
+  else { btns[i].classList.add("wrong"); addWrong(w, `선택: ${picked.mean}`); }
+  document.getElementById("reveal").classList.remove("hidden");
+  setTimeout(() => { s.idx++; renderListen(); }, picked === w ? 900 : 1800);
+}
+
+/* ---------- 2-1 타이핑 ---------- */
+function renderType() {
+  const s = state;
+  if (s.idx >= s.items.length) return showResult();
+  const w = s.items[s.idx];
+  s.locked = false;
+  app.innerHTML = `
+    ${header(s.idx, s.items.length, true)}
+    <div class="card">
+      <div class="word">${esc(w.word)}</div>
+      ${pron(w)}
+      <div id="ans" class="meaning hidden">${esc(w.mean)}</div>
+    </div>
+    <form onsubmit="event.preventDefault(); submitType()" class="stack">
+      <input id="tin" class="type-input" placeholder="한글 뜻을 입력하세요" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="btn primary" type="submit">확인</button>
+    </form>
+    <div id="fb" class="feedback"></div>`;
+  document.getElementById("tin").focus();
+  startTimer(TYPE_TIME, () => submitType(true));
+}
+function submitType(timeout = false) {
+  const s = state;
+  if (s.locked) return;
+  s.locked = true; stopTimer();
+  const w = s.items[s.idx], input = document.getElementById("tin").value.trim();
+  const ok = !timeout && isCorrectMeaning(input, w.mean);
+  const fb = document.getElementById("fb");
+  document.getElementById("tin").disabled = true;
+  document.getElementById("ans").classList.remove("hidden");
+  if (ok) { s.correct++; fb.textContent = "정답! ✓"; fb.className = "feedback ok"; }
+  else {
+    addWrong(w, timeout ? "시간 초과" : `입력: ${input || "(없음)"}`);
+    fb.textContent = timeout ? "⏰ 시간 초과" : "오답 ✗"; fb.className = "feedback bad";
+  }
+  setTimeout(() => { s.idx++; renderType(); }, ok ? 800 : 1800);
+}
+
+/* ---------- 2-2 짝 맞추기 ---------- */
+function startMatch() {
+  const s = state;
+  s.sets = [];
+  for (let i = 0; i < s.items.length; i += MATCH_SET) s.sets.push(s.items.slice(i, i + MATCH_SET));
+  // 마지막 세트가 1개뿐이면 이전 세트에 합치기
+  if (s.sets.length > 1 && s.sets[s.sets.length - 1].length < 2) s.sets[s.sets.length - 2].push(...s.sets.pop());
+  s.setIdx = 0; s.doneCount = 0;
+  renderMatch();
+}
+function renderMatch() {
+  const s = state;
+  if (s.setIdx >= s.sets.length) return showResult();
+  const set = s.sets[s.setIdx];
+  s.left = shuffle(set); s.right = shuffle(set); s.sel = null; s.matched = new Set(); s.setWrong = new Set(); s.locked = false;
+  app.innerHTML = `
+    ${header(s.doneCount, s.items.length, true)}
+    <div class="hint" style="text-align:center">세트 ${s.setIdx + 1} / ${s.sets.length} · 영단어와 뜻을 차례로 눌러 연결하세요</div>
+    <div class="match-grid">
+      <div class="match-col">${s.left.map((w, i) => `<button class="tile en" data-side="L" data-i="${i}" onclick="tapTile('L',${i})">${esc(w.word)}</button>`).join("")}</div>
+      <div class="match-col">${s.right.map((w, i) => `<button class="tile" data-side="R" data-i="${i}" onclick="tapTile('R',${i})">${esc(w.mean)}</button>`).join("")}</div>
+    </div>`;
+  startTimer(MATCH_TIME, () => endMatchSet(true));
+}
+const tileEl = (side, i) => app.querySelector(`.tile[data-side="${side}"][data-i="${i}"]`);
+function tapTile(side, i) {
+  const s = state;
+  if (s.locked) return;
+  const w = side === "L" ? s.left[i] : s.right[i];
+  if (s.matched.has(w)) return;
+  if (!s.sel || s.sel.side === side) {
+    if (s.sel) tileEl(s.sel.side, s.sel.i).classList.remove("sel");
+    if (s.sel && s.sel.side === side && s.sel.i === i) { s.sel = null; return; }
+    s.sel = { side, i }; tileEl(side, i).classList.add("sel");
+    if (side === "L") speak(w.word);
+    return;
+  }
+  const a = s.sel, aw = a.side === "L" ? s.left[a.i] : s.right[a.i];
+  const e1 = tileEl(a.side, a.i), e2 = tileEl(side, i);
+  s.sel = null; e1.classList.remove("sel");
+  if (aw === w) {
+    s.matched.add(w); s.doneCount++;
+    e1.classList.add("done"); e2.classList.add("done");
+    app.querySelector(".bar > i").style.width = (s.doneCount / s.items.length * 100) + "%";
+    app.querySelector(".counter").textContent = `${s.doneCount} / ${s.items.length}`;
+    if (!s.setWrong.has(w)) s.correct++;
+    if (s.matched.size === s.left.length) endMatchSet(false);
+  } else {
+    // 틀린 연결: 영단어 쪽 단어를 오답으로 기록
+    const enWord = a.side === "L" ? aw : w, other = a.side === "L" ? w : aw;
+    s.setWrong.add(enWord);
+    addWrong(enWord, `연결: ${other.mean}`);
+    [e1, e2].forEach(e => { e.classList.remove("shake"); void e.offsetWidth; e.classList.add("shake"); e.addEventListener("animationend", () => e.classList.remove("shake"), { once: true }); });
+  }
+}
+function endMatchSet(timeout) {
+  const s = state;
+  if (s.locked) return;
+  s.locked = true; stopTimer();
+  if (timeout) {
+    s.left.forEach((w, i) => {
+      if (!s.matched.has(w)) {
+        addWrong(w, "시간 초과");
+        tileEl("L", i).classList.add("missed");
+        tileEl("R", s.right.indexOf(w)).classList.add("missed");
+        s.doneCount++;
+      }
+    });
+  }
+  setTimeout(() => { s.setIdx++; renderMatch(); }, timeout ? 1500 : 500);
+}
+
+/* ---------- 결과 ---------- */
+function showResult() {
+  stopTimer();
+  const s = state, total = s.items.length;
+  if (s.mode === "flash") {
+    s.items.forEach((w, i) => { if (s.marked?.[i] === "bad") addWrong(w, "몰랐어요"); });
+    s.correct = s.items.filter((_, i) => s.marked?.[i] === "ok").length;
+  }
+  if (!s.saved) {   // 학습 기록 남기기
+    s.saved = true;
+    records.unshift({
+      id: Date.now(), deckId: deck.id, deckName: deck.name, mode: s.mode, retry: s.retry, date: Date.now(), total, correct: s.correct,
+      wrong: s.wrong.map(({ w, detail }) => ({ word: w.word, pronun: w.pronun || "", mean: w.mean, detail })),
+    });
+    if (records.length > 400) records.length = 400;
+    saveHistory(); cloudPut("rec", records[0]);
+  }
+  const pct = total ? Math.round(s.correct / total * 100) : 0;
+  const unmarked = s.mode === "flash" ? total - s.correct - s.wrong.length : 0;
+  app.innerHTML = `
+    <div class="topbar">
+      <button class="icon-btn" onclick="goHome()" aria-label="홈">←</button>
+      <h1>${MODES[s.mode].id}. ${MODES[s.mode].title} 결과</h1>
+    </div>
+    <div class="bar"><i style="width:100%"></i></div>
+    <div class="score">
+      <div class="big">${pct}%</div>
+      <p>${total}개 중 ${s.correct}개 ${s.mode === "flash" ? "알았어요" : "정답"} · 오답 ${s.wrong.length}개${unmarked > 0 ? ` · 미체크 ${unmarked}개` : ""}</p>
+      <p style="font-size:.8rem">${storageOK ? "✓ 학습 기록에 저장했어요" : "⚠ 이 브라우저에선 기록이 저장되지 않아요"} <button class="link" onclick="goHistory()">기록 보기</button></p>
+    </div>
+    <div class="section-label">틀린 단어 모아보기</div>
+    ${s.wrong.length ? `<div class="wrong-list">
+      ${s.wrong.map(({ w, detail }) => `<div class="row"><b>${esc(w.word)} ${w.pronun ? `<em>[${esc(w.pronun)}]</em>` : ""}</b><span>${esc(w.mean)}</span><small>${esc(detail)}</small></div>`).join("")}
+    </div>` : `<div class="wrong-list"><div class="empty">🎉 틀린 단어가 없어요!</div></div>`}
+    <div class="stack">
+      ${s.wrong.length ? `<button class="btn primary" onclick="retryWrong()">오답 재도전 (${s.wrong.length}개)</button>` : ""}
+      <div class="row-btns">
+        <button class="btn" onclick="startMode('${s.mode}')">전체 다시하기</button>
+        <button class="btn" onclick="goHome()">홈으로</button>
+      </div>
+    </div>`;
+}
+function retryWrong() {
+  const pool = state.wrong.map(x => x.w);
+  startMode(state.mode, pool, true);
+}
+
+/* ---------- 단어장 목록 ---------- */
+function goDecks() {
+  stopTimer(); screen = "decks";
+  app.innerHTML = `
+    <div class="topbar"><button class="icon-btn" onclick="goHome()" aria-label="홈">←</button><h1>내 단어장</h1></div>
+    <button class="btn primary" onclick="goEditor()">➕ 새 단어장 만들기 (사진 · 텍스트)</button>
+    ${decks.map(d => {
+      const rs = records.filter(r => r.deckId === d.id);
+      return `
+      <div class="panel">
+        <div><b>${esc(d.name)}</b>${d === deck ? `<span class="tag cur">사용 중</span>` : ""}</div>
+        <p class="help">${d.words.length}개 단어 · ${esc(d.words.slice(0, 4).map(w => w.word).join(", "))}${d.words.length > 4 ? " …" : ""}<br>
+          학습 ${rs.length}회${rs.length ? ` · 최근 ${pctOf(rs[0])}% (${fmtDate(rs[0].date)})` : ""}</p>
+        <div class="row-btns">
+          <button class="btn sm primary" onclick="pickDeck('${d.id}')">학습하기</button>
+          <button class="btn sm" onclick="goEditor('${d.id}')">편집</button>
+          <button class="btn sm danger-text" onclick="deleteDeck('${d.id}')" ${decks.length < 2 ? "disabled" : ""}>삭제</button>
+        </div>
+      </div>`;
+    }).join("")}`;
+}
+function pickDeck(id) { useDeck(decks.find(d => d.id === id)); goHome(); }
+async function deleteDeck(id) {
+  const d = decks.find(x => x.id === id);
+  if (!d || decks.length < 2 || !await askConfirm(`'${d.name}' 단어장을 삭제할까요?\n(학습 기록은 그대로 남아요)`, "삭제", true)) return;
+  decks = decks.filter(x => x !== d);
+  saveDecks(); cloudDel("deck", d.id);
+  if (deck === d) useDeck(decks[0]);
+  goDecks();
+}
+
+/* ---------- 단어 넣기 (사진 OCR / 텍스트) ---------- */
+let ed = null;   // 편집 중인 단어장 { id, name, rows }
+function goEditor(id) {
+  stopTimer(); screen = "editor";
+  const src = id && decks.find(d => d.id === id);
+  ed = { id: src ? src.id : null, name: src ? src.name : "", rows: src ? src.words.map(w => ({ ...w })) : [] };
+  app.innerHTML = `
+    <div class="topbar"><button class="icon-btn" onclick="${src ? "goDecks()" : "goHome()"}" aria-label="뒤로">←</button><h1>${src ? "단어장 편집" : "새 단어장"}</h1></div>
+    <input class="field" placeholder="단어장 이름 (예: 토익 Day 3)" value="${esc(ed.name)}" oninput="ed.name = this.value">
+    <div class="panel">
+      <h2>📷 사진으로 넣기</h2>
+      <p class="help" id="ocr-help">${esc(photoHelp())}</p>
+      <label class="btn">사진 선택 · 촬영<input type="file" accept="image/*" hidden onchange="ocrFile(this.files[0]); this.value = ''"></label>
+      <img id="ocr-img" class="ocr-preview hidden" alt="올린 사진">
+      <div id="ocr-status" class="status"></div>
+    </div>
+    <div class="panel">
+      <h2>⌨️ 텍스트로 넣기</h2>
+      <p class="help">한 줄에 한 단어씩 넣어요. 발음은 없어도 돼요.<br>
+        <code>attendee 참석자</code><br><code>attendee [어텐디] 참석자</code><br><code>attendee | 어텐디 | 참석자</code></p>
+      <textarea class="field" id="ed-text" placeholder="fee 수수료, 요금&#10;conclusion 결론&#10;decision [디시전] 결정, 판단"></textarea>
+      <button class="btn" onclick="addFromText()">아래 목록에 추가</button>
+      <div id="txt-status" class="status"></div>
+    </div>
+    <div class="panel">
+      <h2 id="ed-count"></h2>
+      <p class="help">잘못 읽힌 글자는 여기서 바로 고치세요. 발음 칸은 비워 둬도 돼요.</p>
+      <div class="edit-list" id="ed-list"></div>
+      <div class="row-btns">
+        <button class="btn sm" onclick="ed.rows.push({ word: '', pronun: '', mean: '' }); renderRows(true)">+ 빈 줄 추가</button>
+        <button class="btn sm" id="pron-btn" hidden onclick="fillPronun()">✨ 빈 발음 채우기</button>
+      </div>
+    </div>
+    <button class="btn primary" id="ed-save" onclick="saveDeck()">저장하고 학습 시작</button>`;
+  renderRows();
+}
+function renderRows(focusLast) {
+  const list = document.getElementById("ed-list");
+  if (!list) return;
+  list.innerHTML = ed.rows.map((r, i) => `
+    <div class="edit-row">
+      <input class="field" placeholder="영단어" value="${esc(r.word)}" oninput="edSet(${i}, 'word', this.value)" autocapitalize="off" spellcheck="false">
+      <input class="field" placeholder="발음 (선택)" value="${esc(r.pronun || "")}" oninput="edSet(${i}, 'pronun', this.value)">
+      <input class="field m" placeholder="뜻" value="${esc(r.mean)}" oninput="edSet(${i}, 'mean', this.value)">
+      <button class="del" onclick="ed.rows.splice(${i}, 1); renderRows()" aria-label="삭제">✕</button>
+    </div>`).join("") || `<p class="help" style="text-align:center">아직 단어가 없어요. 사진이나 텍스트로 넣어 주세요.</p>`;
+  updateCount();
+  if (focusLast) list.querySelector(".edit-row:last-child input")?.focus();
+}
+function edSet(i, k, v) { ed.rows[i][k] = v; updateCount(); }
+const validRows = () => ed.rows
+  .map(r => ({ word: r.word.trim(), pronun: (r.pronun || "").trim(), mean: r.mean.trim() }))
+  .filter(r => r.word && r.mean);
+function updateCount() {
+  const n = validRows().length;
+  document.getElementById("ed-count").textContent = `📋 단어 목록 (${n}개)`;
+  document.getElementById("ed-save").disabled = n === 0;
+  updateEditorAI();
+}
+function mergeRows(found) {   // 이미 있는 단어는 건너뛰고 추가, 추가한 개수 반환
+  const have = new Set(ed.rows.map(r => r.word.trim().toLowerCase()));
+  let n = 0;
+  for (const w of found) {
+    const k = w.word.toLowerCase();
+    if (have.has(k)) continue;
+    have.add(k); ed.rows.push(w); n++;
+  }
+  return n;
+}
+function addFromText() {
+  const ta = document.getElementById("ed-text"), st = document.getElementById("txt-status");
+  const found = parseWords(ta.value), n = mergeRows(found);
+  st.className = "status " + (n ? "ok" : "bad");
+  st.textContent = n ? `✓ ${n}개 단어를 추가했어요.` : found.length ? "이미 목록에 있는 단어예요." : "단어를 찾지 못했어요. 위 예시 형식을 확인해 주세요.";
+  if (n) ta.value = "";
+  renderRows();
+}
+function saveDeck() {
+  const words = validRows();
+  if (!words.length) return;
+  const name = ed.name.trim() || `단어장 ${new Date().toLocaleDateString("ko-KR")}`;
+  let d = ed.id && decks.find(x => x.id === ed.id);
+  if (d) { d.name = name; d.words = words; }
+  else { d = { id: "d" + Date.now(), name, created: Date.now(), words }; decks.push(d); }
+  saveDecks(); cloudPut("deck", d); useDeck(d); ed = null;
+  goHome();
+}
+
+// 텍스트 → [{word, pronun, mean}]
+//  "word 뜻" / "word [발음] 뜻" / "word | 발음 | 뜻" / 영단어 줄 다음 줄에 뜻 / 한 줄에 여러 쌍 (사진 두 단 배치)
+function parseWords(text) {
+  const out = [];
+  const clean = s => s.replace(/\s+/g, " ").trim();
+  const cleanMean = s => clean(s)
+    .replace(/^[\s:=\-–—.·|]+|[\s:=\-–—|_.\d]+$/g, "")
+    .split(/([,;])/).map(seg => {   // OCR이 "참 석 자"처럼 글자마다 띄운 경우 붙이기
+      const t = seg.trim().split(" ");
+      return t.length > 1 && t.every(x => x.length === 1 && /[가-힣]/.test(x)) ? (seg.startsWith(" ") ? " " : "") + t.join("") : seg;
+    }).join("");
+  const hasKo = s => /[가-힣]/.test(s);
+  let pending = null;
+  for (const raw of text.split(/\r?\n/)) {
+    if (/[|\t]/.test(raw)) {
+      const p = raw.split(/\s*[|\t]\s*/).map(clean).filter(Boolean);
+      if (p.length >= 3) out.push({ word: p[0], pronun: p[1], mean: p.slice(2).join(", ") });
+      else if (p.length === 2) out.push({ word: p[0], pronun: "", mean: p[1] });
+      pending = null;
+      continue;
+    }
+    const line = clean(raw);
+    if (!line) continue;
+    if (/^[A-Za-z][A-Za-z'’\-. ]*$/.test(line)) { pending = line.replace(/[.\s]+$/, ""); continue; }
+    if (pending && hasKo(line) && !/[A-Za-z]/.test(line)) {
+      const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+      out.push({ word: pending, pronun: m ? clean(m[1]) : "", mean: cleanMean(m ? m[2] : line) });
+      pending = null;
+      continue;
+    }
+    pending = null;
+    const re = /([A-Za-z][A-Za-z'’\-]*(?: [A-Za-z][A-Za-z'’\-]*)*)\s*(?:\[([^\]]*)\])?\s*([^A-Za-z\[\]]*)/g;
+    let m;
+    while ((m = re.exec(line))) {
+      const mean = cleanMean(m[3] || "");
+      if (hasKo(mean)) out.push({ word: m[1], pronun: clean(m[2] || ""), mean });
+      if (m[0] === "") re.lastIndex++;
+    }
+  }
+  return out.filter(w => /[A-Za-z]{2,}/.test(w.word) && hasKo(w.mean));
+}
+
+/* ---------- 사진 읽기 ----------
+   claude.ai에서 열면: Claude가 사진을 읽음 (뜻 + 없는 발음까지)
+   파일로 열면: Tesseract.js OCR (인터넷 필요, 정확도 낮음) */
+const photoHelp = () =>
+  sampleImages ? "단어장 사진을 올리면 Claude가 영단어와 뜻을 읽고, 없는 한글 발음도 채워 넣어요."
+  : inViewer && sampler === undefined ? "사진 읽기를 준비하는 중이에요…"
+  : inViewer ? "이 화면에서는 사진 읽기를 쓸 수 없어요. 텍스트로 넣어 주세요."
+  : "단어장 사진을 올리면 글자를 읽어서 아래 목록에 넣어요. 처음 한 번은 인식 데이터를 내려받느라 시간이 걸려요 (인터넷 필요). 잘못 읽힐 수 있으니 꼭 확인해 주세요.";
+function updateEditorAI() {
+  const h = document.getElementById("ocr-help");
+  if (h) h.textContent = photoHelp();
+  const b = document.getElementById("pron-btn");
+  if (b && !b.disabled) b.hidden = !(sampler && ed?.rows.some(r => r.word.trim() && !(r.pronun || "").trim()));
+}
+
+let tessLoading = null;
+function loadTesseract() {
+  if (window.Tesseract) return Promise.resolve();
+  return tessLoading ||= new Promise((res, rej) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+    sc.onload = res;
+    sc.onerror = () => { tessLoading = null; sc.remove(); rej(new Error("load failed")); };
+    document.head.appendChild(sc);
+  });
+}
+async function shrinkImage(file, max = 2200, gray = false) {   // 폰 사진은 커서 느리므로 줄여서 인식
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    const g = c.getContext("2d");
+    if (gray) g.filter = "grayscale(1) contrast(1.6)";   // 흑백 + 대비 ↑ → 인식률 향상
+    g.drawImage(bmp, 0, 0, c.width, c.height);
+    return c;
+  } catch { return file; }
+}
+async function toJpeg(file, max = 2000) {
+  const c = await shrinkImage(file, max);
+  if (c === file) return file;
+  return new Promise(r => c.toBlob(b => r(b || file), "image/jpeg", 0.88));
+}
+// OCR 잡음 정리: 단어 앞뒤의 짧은 조각("a fit", "standard BE") 제거, 뜻 앞뒤 기호 제거
+function cleanOcr(rows) {
+  return rows.map(r => {
+    const t = r.word.split(" ").filter(Boolean), junk = x => x.length <= 2 || /^[A-Z]{2,4}$/.test(x);
+    while (t.length > 1 && junk(t[0])) t.shift();
+    while (t.length > 1 && junk(t[t.length - 1])) t.pop();
+    return { ...r, word: t.join(" "), mean: r.mean.replace(/^[\s~`@,.\d]+|[\s~`@,.\d]+$/g, "") };
+  }).filter(r => r.word.length >= 3 && /[가-힣]/.test(r.mean));
+}
+async function readPhotoWithClaude(file, say) {
+  say("Claude가 사진을 읽는 중이에요… (10~30초)");
+  const out = await sampler.json(
+    "첨부한 사진은 영어 단어장입니다. 사진 속 영어 단어(표현)와 한글 뜻을 사진에 나온 순서대로 빠짐없이 뽑아 주세요. " +
+    "여러 단으로 되어 있으면 왼쪽 단 위→아래, 그다음 오른쪽 단 순서입니다.\n" +
+    "- mean: 사진에 적힌 뜻 그대로 (뜻이 여러 개면 사진의 구분 기호 그대로)\n" +
+    "- pronun: 사진에 한글 발음이 있으면 그대로, 없으면 미국식 발음을 한글로 짧게 (예: attendee → 어텐디)\n" +
+    "- 제목, 안내문, 예문, 뒷면에서 비쳐 보이는 글자는 빼세요.\n" +
+    'JSON 배열만 답하세요: [{"word":"attendee","pronun":"어텐디","mean":"참석자"}]',
+    { images: await toJpeg(file), modelTier: "default" });
+  return (Array.isArray(out) ? out : [])
+    .map(x => ({ word: String(x?.word || "").trim(), pronun: String(x?.pronun || "").trim(), mean: String(x?.mean || "").trim() }))
+    .filter(x => /[A-Za-z]/.test(x.word) && x.mean);
+}
+async function readPhotoWithTesseract(file, say) {
+  const STEPS = { "loading tesseract core": "엔진 준비 중", "initializing tesseract": "엔진 준비 중", "loading language traineddata": "한글·영어 인식 데이터 내려받는 중", "initializing api": "준비 중", "recognizing text": "글자 읽는 중" };
+  say("OCR 엔진 불러오는 중…");
+  await loadTesseract();
+  const worker = await Tesseract.createWorker("kor+eng", 1, {
+    logger: m => say(`${STEPS[m.status] || m.status}… ${m.progress ? Math.round(m.progress * 100) + "%" : ""}`),
+  });
+  try {
+    await worker.setParameters({ tessedit_pageseg_mode: "6" });
+    const { data } = await worker.recognize(await shrinkImage(file, 2200, true));
+    return { rows: cleanOcr(parseWords(data.text)), text: data.text };
+  } finally { worker.terminate(); }
+}
+async function ocrFile(file) {
+  if (!file) return;
+  const say = (t, cls = "") => { const st = document.getElementById("ocr-status"); if (st) { st.textContent = t; st.className = "status " + cls; } };
+  const img = document.getElementById("ocr-img");
+  img.src = URL.createObjectURL(file); img.hidden = false; img.classList.remove("hidden");
+  if (!sampleImages && inViewer) return say(photoHelp(), "bad");
+  try {
+    let rows, text = "";
+    if (sampleImages) rows = await readPhotoWithClaude(file, say);
+    else ({ rows, text } = await readPhotoWithTesseract(file, say));
+    if (!ed) return;
+    const n = mergeRows(rows);
+    renderRows();
+    if (n) say(`✓ ${n}개 단어를 찾았어요. 아래 목록에서 잘못 읽힌 곳이 없는지 확인해 주세요.`, "ok");
+    else if (rows.length) say("사진 속 단어가 이미 목록에 모두 있어요.", "ok");
+    else {
+      const ta = document.getElementById("ed-text");
+      if (ta && text) ta.value = text.trim();
+      say(text ? "단어를 찾지 못했어요. 읽힌 글자를 텍스트 칸에 넣어 두었으니, 고친 뒤 '아래 목록에 추가'를 눌러 주세요." : "사진에서 단어를 찾지 못했어요. 더 밝고 반듯하게 찍어서 다시 올려 주세요.", "bad");
+    }
+  } catch (e) {
+    say(e?.code === "not_granted" ? "사진 읽기가 허용되지 않았어요. 텍스트로 넣어 주세요."
+      : e?.code === "rate_limited" ? "요청이 많아요. 잠시 뒤 다시 올려 주세요."
+      : e?.code === "image_rejected" ? "이 사진 형식은 읽을 수 없어요. JPG나 PNG로 올려 주세요."
+      : "사진을 읽지 못했어요. 인터넷 연결을 확인하거나 텍스트로 입력해 주세요.", "bad");
+  }
+}
+async function fillPronun() {
+  const btn = document.getElementById("pron-btn");
+  const need = ed.rows.filter(r => r.word.trim() && !(r.pronun || "").trim());
+  if (!need.length || !sampler) return;
+  btn.disabled = true; btn.textContent = "발음 만드는 중…";
+  try {
+    const out = await sampler.json(
+      "아래 영어 단어(표현)마다 미국식 발음을 한글로 적어 주세요. 한국 영어 단어장처럼 짧게 (예: attendee → 어텐디, profit → 프라핏).\n" +
+      'JSON 배열만 답하세요: [{"word":"...","pronun":"..."}]\n\n' + need.map(r => r.word.trim()).join("\n"),
+      { modelTier: "quick" });
+    const map = new Map((Array.isArray(out) ? out : []).map(x => [String(x?.word || "").trim().toLowerCase(), String(x?.pronun || "").trim()]));
+    let n = 0;
+    for (const r of need) { const p = map.get(r.word.trim().toLowerCase()); if (p) { r.pronun = p; n++; } }
+    toast(`${n}개 단어의 발음을 채웠어요`);
+  } catch (e) {
+    toast(e?.code === "not_granted" ? "발음 채우기가 허용되지 않았어요" : "발음을 만들지 못했어요. 잠시 뒤 다시 눌러 주세요");
+  }
+  btn.disabled = false; btn.textContent = "✨ 빈 발음 채우기";
+  renderRows();
+}
+
+/* ---------- 확인 창 · 알림 (게시된 페이지에선 confirm/alert가 안 떠서 직접 만듦) ---------- */
+function askConfirm(msg, okLabel = "확인", danger = false) {
+  return new Promise(res => {
+    const el = document.createElement("div");
+    el.className = "modal";
+    el.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true"><p></p><div class="row-btns"><button class="btn" data-v="0">취소</button><button class="btn ${danger ? "bad" : "primary"}" data-v="1"></button></div></div>`;
+    el.querySelector("p").textContent = msg;
+    el.querySelector('[data-v="1"]').textContent = okLabel;
+    el.addEventListener("click", e => {
+      const v = e.target.dataset?.v;
+      if (v === undefined && e.target !== el) return;
+      el.remove(); res(v === "1");
+    });
+    document.body.appendChild(el);
+    el.querySelector('[data-v="1"]').focus();
+  });
+}
+function toast(msg) {
+  const el = document.createElement("div");
+  el.className = "toast"; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+/* ---------- 계정 저장 (claude.ai에서 열었을 때: 폰·PC 기록 동기화) ---------- */
+const inViewer = !!window.claude?.use;
+let cloudCol = null, sampler, sampleImages = false;
+const docKey = (kind, id) => `${kind}_${String(id).replace(/[^\w-]/g, "_")}`;
+function cloudPut(kind, obj) { cloudCol?.doc(docKey(kind, obj.id)).set({ kind, body: JSON.stringify(obj) }).catch(() => {}); }
+function cloudDel(kind, id) { cloudCol?.doc(docKey(kind, id)).delete().catch(() => {}); }
+async function connectCloud() {
+  const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+  const uid = db && user ? await user.id() : null;
+  if (!uid) return;
+  const col = db.collection(`data/users/${uid}`);
+  const snap = await col.limit(1000).get();
+  const cDecks = [], cRecs = [];
+  for (const d of snap.docs) {
+    const v = d.data();
+    try { const o = JSON.parse(v.body); if (v.kind === "deck") cDecks.push(o); else if (v.kind === "rec") cRecs.push(o); } catch {}
+  }
+  cloudCol = col;
+  // 이 기기에만 있던 것은 계정에 올리고, 계정에 있던 것은 가져와 합치기
+  for (const d of decks) if (!cDecks.some(x => x.id === d.id)) cloudPut("deck", d);
+  for (const r of records) if (!cRecs.some(x => x.id === r.id)) cloudPut("rec", r);
+  const byId = new Map(decks.map(d => [d.id, d]));
+  for (const d of cDecks) if (d?.id && Array.isArray(d.words) && d.words.length) byId.set(d.id, d);
+  decks = [...byId.values()];
+  const ids = new Set(records.map(r => r.id));
+  records = [...records, ...cRecs.filter(r => r?.id && !ids.has(r.id))].sort((a, b) => b.date - a.date).slice(0, 400);
+  if (!state) { deck = decks.find(d => d.id === deck.id) || decks[0]; WORDS = deck.words; }
+  saveDecks(); saveHistory();
+  if (screen === "home") goHome(); else if (screen === "decks") goDecks(); else if (screen === "history") goHistory();
+}
+if (inViewer) {
+  connectCloud().catch(() => {});
+  claude.use("sample").then(async s => {
+    sampler = s;
+    if (s) sampleImages = !!(await s.limits().catch(() => null))?.images;
+    updateEditorAI();
+  }).catch(() => { sampler = null; updateEditorAI(); });
+}
+
+/* ---------- 학습 기록 ---------- */
+let histFilter = "deck", openRec = null, topWords = [];
+function goHistory() {
+  stopTimer(); screen = "history";
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  state = null;
+  const list = histFilter === "deck" ? records.filter(r => r.deckId === deck.id) : records;
+  const avg = list.length ? Math.round(list.reduce((a, r) => a + pctOf(r), 0) / list.length) : 0;
+  const days = new Set(list.map(r => new Date(r.date).toDateString())).size;
+  const cnt = new Map();   // 자주 틀린 단어
+  list.forEach(r => r.wrong.forEach(w => {
+    const k = w.word.toLowerCase(), e = cnt.get(k) || { w, n: 0 };
+    e.n++; cnt.set(k, e);
+  }));
+  const top = [...cnt.values()].sort((a, b) => b.n - a.n).slice(0, 10);
+  topWords = top.map(t => ({ word: t.w.word, pronun: t.w.pronun, mean: t.w.mean }));
+  app.innerHTML = `
+    <div class="topbar"><button class="icon-btn" onclick="goHome()" aria-label="홈">←</button><h1>학습 기록</h1></div>
+    <p class="help">${cloudCol ? "☁️ claude.ai 계정에 저장돼요. 폰·PC 어디서 열어도 같은 기록이 보여요." : storageOK ? "이 기기의 브라우저에 저장돼요." : "⚠ 이 브라우저에서는 기록을 저장할 수 없어요 (시크릿 모드 등)."}</p>
+    <div class="tabs">
+      <button class="${histFilter === "deck" ? "on" : ""}" onclick="histFilter = 'deck'; goHistory()">현재 단어장</button>
+      <button class="${histFilter === "all" ? "on" : ""}" onclick="histFilter = 'all'; goHistory()">전체</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>${list.length}</b><span>학습 횟수</span></div>
+      <div class="stat"><b>${list.length ? avg + "%" : "-"}</b><span>평균 점수</span></div>
+      <div class="stat"><b>${days}</b><span>학습한 날</span></div>
+    </div>
+    ${top.length ? `
+    <div class="section-label">자주 틀린 단어</div>
+    <div class="panel">
+      <div class="mini-list">${top.map(({ w, n }) => `<div><b>${esc(w.word)}</b><span>${esc(w.mean)}</span><em class="tag">${n}회</em></div>`).join("")}</div>
+      <button class="btn sm primary" onclick="startMode('type', topWords, true)">이 단어들로 타이핑 연습</button>
+    </div>` : ""}
+    <div class="section-label">지난 기록</div>
+    ${list.length ? list.slice(0, 100).map(recHtml).join("")
+      : `<div class="panel"><p class="help" style="text-align:center">아직 기록이 없어요.<br>학습을 끝까지 마치면 여기에 남아요.</p></div>`}
+    <div class="section-label">기록 관리</div>
+    <div class="row-btns">
+      <button class="btn sm" onclick="exportData()">💾 백업 저장</button>
+      <label class="btn sm">📂 백업 불러오기<input type="file" accept=".json,application/json" hidden onchange="importData(this.files[0]); this.value = ''"></label>
+    </div>
+    <button class="btn sm danger-text" onclick="clearHistory()">학습 기록 전체 삭제</button>`;
+}
+function recHtml(r) {
+  const p = pctOf(r), open = openRec === r.id;
+  return `
+    <div class="rec">
+      <button class="rec-head" onclick="openRec = openRec === ${r.id} ? null : ${r.id}; goHistory()">
+        <div class="pct ${pctClass(p)}">${p}%</div>
+        <div class="info"><b>${esc(modeName(r))}</b><span>${fmtDate(r.date)} · ${esc(r.deckName)} · ${r.correct}/${r.total}</span></div>
+        <span class="chev">${open ? "▲" : "▼"}</span>
+      </button>
+      ${open ? `<div class="rec-body">${r.wrong.length ? `
+        <div class="mini-list">${r.wrong.map(w => `<div><b>${esc(w.word)}</b><span>${esc(w.mean)}</span></div>`).join("")}</div>
+        <button class="btn sm primary" onclick="retryRecord(${r.id})">이 오답 ${r.wrong.length}개 다시 풀기</button>`
+        : `<p class="help">틀린 단어 없이 완료 🎉</p>`}</div>` : ""}
+    </div>`;
+}
+function retryRecord(id) {
+  const r = records.find(x => x.id === id);
+  if (!r) return;
+  const d = decks.find(x => x.id === r.deckId);
+  if (d) useDeck(d);   // 보기(오답 선택지)를 같은 단어장에서 뽑도록
+  startMode(r.mode, r.wrong.map(w => ({ word: w.word, pronun: w.pronun, mean: w.mean })), true);
+}
+async function exportData() {
+  const json = JSON.stringify({ app: "vocab", version: 1, exported: Date.now(), decks, records }, null, 2);
+  const filename = `단어학습-백업-${new Date().toISOString().slice(0, 10)}.json`;
+  if (inViewer) {
+    const dl = await claude.use("downloads").catch(() => null);
+    if (!dl) return toast("이 화면에서는 파일을 저장할 수 없어요");
+    try { await dl.save({ filename, data: json }); } catch { toast("백업 파일을 저장하지 않았어요"); }
+    return;
+  }
+  const blob = new Blob([json], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+async function importData(file) {
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data.decks) || !Array.isArray(data.records)) throw new Error("format");
+    if (!await askConfirm(`백업을 불러올까요?\n단어장 ${data.decks.length}개, 기록 ${data.records.length}개\n(지금 있는 것과 합쳐져요)`, "불러오기")) return;
+    for (const d of data.decks) if (d?.id && Array.isArray(d.words) && !decks.some(x => x.id === d.id)) { decks.push(d); cloudPut("deck", d); }
+    const ids = new Set(records.map(r => r.id)), add = data.records.filter(r => r?.id && !ids.has(r.id));
+    add.forEach(r => cloudPut("rec", r));
+    records = [...records, ...add].sort((a, b) => b.date - a.date).slice(0, 400);
+    saveDecks(); saveHistory(); goHistory(); toast("백업을 불러왔어요");
+  } catch { toast("백업 파일을 읽지 못했어요"); }
+}
+async function clearHistory() {
+  if (!records.length || !await askConfirm("학습 기록을 모두 삭제할까요? 되돌릴 수 없어요.\n(단어장은 그대로 남아요)", "모두 삭제", true)) return;
+  records.forEach(r => cloudDel("rec", r.id));
+  records = []; saveHistory(); goHistory();
+}
+
+goHome();
+</script>
+</body>
+</html>
