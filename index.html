@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1117">
-<title>영단어 암기용 프로그램</title>
+<title>나만의 단어장</title>
 <style>
   :root {
     color-scheme: dark;
@@ -84,7 +84,7 @@
   /* Buttons */
   .row-btns { display: flex; gap: 10px; }
   .row-btns > * { flex: 1; }
-  .btn { background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; font-weight: 600; font-size: 1rem; }
+  .btn { word-break: keep-all; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; font-weight: 600; font-size: 1rem; }
   .btn:disabled { opacity: .4; cursor: default; }
   .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: transparent; color: #fff; }
   .btn.ok { background: rgba(62,207,142,.15); border-color: var(--ok); color: var(--ok); }
@@ -226,10 +226,10 @@ const LS = {
 };
 const storageOK = LS.set("vocab.ping", 1);
 let decks = LS.get("vocab.decks", null);      // 단어장: { id, name, created, words: [{ word, pronun, mean }] }
-if (!Array.isArray(decks) || !decks.length) decks = [{ id: "toeic-20", name: "토익 필수 어휘 20", created: Date.now(), words: DEFAULT_WORDS }];
+if (!Array.isArray(decks)) decks = [];      // 처음 온 사람은 빈 상태에서 자기 단어장을 만들어 시작
 let records = LS.get("vocab.history", []);    // 학습 기록: { id, deckId, deckName, mode, retry, date, total, correct, wrong }
-let deck = decks.find(d => d.id === LS.get("vocab.current", "")) || decks[0];
-let WORDS = deck.words;
+let deck = decks.find(d => d.id === LS.get("vocab.current", "")) || decks[0] || null;
+let WORDS = deck ? deck.words : [];
 const saveDecks = () => LS.set("vocab.decks", decks);
 const saveHistory = () => LS.set("vocab.history", records);
 function useDeck(d) { deck = d; WORDS = d.words; LS.set("vocab.current", d.id); }
@@ -323,9 +323,10 @@ function goHome() {
   stopTimer();
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   state = null; screen = "home";
+  if (!deck) return renderWelcome();
   const last = records.find(r => r.deckId === deck.id);
   app.innerHTML = `
-    <div class="hero"><h1>📘 단어 학습</h1></div>
+    <div class="hero"><h1>📘 나만의 단어장</h1></div>
     <button class="deck-bar" onclick="goDecks()">
       <div>
         <small>현재 단어장</small>
@@ -356,6 +357,32 @@ function goHome() {
     <div class="wordlist hidden" id="wl">
       ${WORDS.map(w => `<div class="row"><b>${esc(w.word)}</b><em>${esc(w.pronun || "")}</em><div class="m">${esc(w.mean)}</div></div>`).join("")}
     </div>`;
+}
+/* ---------- 처음 화면 (단어장이 하나도 없을 때) ---------- */
+function renderWelcome() {
+  app.innerHTML = `
+    <div class="hero">
+      <h1>📘 나만의 단어장</h1>
+      <p>외우고 싶은 단어를 넣으면 바로 시작해요.</p>
+    </div>
+    <div class="panel">
+      <h2>이렇게 넣을 수 있어요</h2>
+      <p class="help">📷 단어장 사진을 찍어서 올리기<br>⌨️ 텍스트로 붙여넣기 — <code>attendee 참석자</code></p>
+      <button class="btn primary" onclick="goEditor()">➕ 내 단어장 만들기</button>
+    </div>
+    <div class="panel">
+      <h2>이렇게 외워요</h2>
+      <p class="help">1-1 카드로 발음 보고 뜻 확인 · 1-2 듣고 뜻 고르기<br>2-1 뜻 타이핑 (랜덤 / 순서대로) · 2-2 짝 맞추기<br>틀린 단어만 모아서 다시 풀 수 있어요.</p>
+      <button class="btn" onclick="useSample()">예시로 먼저 해 보기 · 토익 20개</button>
+    </div>
+    <p class="help" style="text-align:center">단어장과 학습 기록은 이 기기에만 저장돼요. 다른 사람에게 보이지 않아요.</p>
+    ${records.length ? `<button class="link" onclick="goHistory()">📊 지난 학습 기록 보기</button>` : ""}`;
+}
+function useSample() {
+  const d = decks.find(x => x.id === "toeic-20")
+    || { id: "toeic-20", name: "예시 · 토익 필수 어휘 20", created: Date.now(), words: DEFAULT_WORDS.map(w => ({ ...w })) };
+  if (!decks.includes(d)) { decks.push(d); saveDecks(); cloudPut("deck", d); }
+  useDeck(d); goHome();
 }
 const modeBtn = k => `<button class="mode" onclick="startMode('${k}')"><div class="num">${MODES[k].id}</div><div><b>${MODES[k].title}</b><span>${MODES[k].desc}</span></div></button>`;
 function toggleList(btn) {
@@ -560,7 +587,7 @@ function showResult() {
   if (!s.saved) {   // 학습 기록 남기기
     s.saved = true;
     records.unshift({
-      id: Date.now(), deckId: deck.id, deckName: deck.name, mode: s.mode, retry: s.retry, date: Date.now(), total, correct: s.correct,
+      id: Date.now(), deckId: deck?.id || "", deckName: deck?.name || "자주 틀린 단어", mode: s.mode, retry: s.retry, date: Date.now(), total, correct: s.correct,
       wrong: s.wrong.map(({ w, detail }) => ({ word: w.word, pronun: w.pronun || "", mean: w.mean, detail })),
     });
     if (records.length > 400) records.length = 400;
@@ -602,6 +629,7 @@ function goDecks() {
   app.innerHTML = `
     <div class="topbar"><button class="icon-btn" onclick="goHome()" aria-label="홈">←</button><h1>내 단어장</h1></div>
     <button class="btn primary" onclick="goEditor()">➕ 새 단어장 만들기 (사진 · 텍스트)</button>
+    ${decks.length ? "" : `<p class="help" style="text-align:center">아직 단어장이 없어요.</p>`}
     ${decks.map(d => {
       const rs = records.filter(r => r.deckId === d.id);
       return `
@@ -612,7 +640,7 @@ function goDecks() {
         <div class="row-btns">
           <button class="btn sm primary" onclick="pickDeck('${d.id}')">학습하기</button>
           <button class="btn sm" onclick="goEditor('${d.id}')">편집</button>
-          <button class="btn sm danger-text" onclick="deleteDeck('${d.id}')" ${decks.length < 2 ? "disabled" : ""}>삭제</button>
+          <button class="btn sm danger-text" onclick="deleteDeck('${d.id}')">삭제</button>
         </div>
       </div>`;
     }).join("")}`;
@@ -620,10 +648,10 @@ function goDecks() {
 function pickDeck(id) { useDeck(decks.find(d => d.id === id)); goHome(); }
 async function deleteDeck(id) {
   const d = decks.find(x => x.id === id);
-  if (!d || decks.length < 2 || !await askConfirm(`'${d.name}' 단어장을 삭제할까요?\n(학습 기록은 그대로 남아요)`, "삭제", true)) return;
+  if (!d || !await askConfirm(`'${d.name}' 단어장을 삭제할까요?\n(학습 기록은 그대로 남아요)`, "삭제", true)) return;
   decks = decks.filter(x => x !== d);
   saveDecks(); cloudDel("deck", d.id);
-  if (deck === d) useDeck(decks[0]);
+  if (deck === d) { if (decks[0]) useDeck(decks[0]); else { deck = null; WORDS = []; LS.set("vocab.current", ""); } }
   goDecks();
 }
 
@@ -934,7 +962,7 @@ async function connectCloud() {
   decks = [...byId.values()];
   const ids = new Set(records.map(r => r.id));
   records = [...records, ...cRecs.filter(r => r?.id && !ids.has(r.id))].sort((a, b) => b.date - a.date).slice(0, 400);
-  if (!state) { deck = decks.find(d => d.id === deck.id) || decks[0]; WORDS = deck.words; }
+  if (!state) { deck = decks.find(d => d.id === deck?.id) || decks[0] || null; WORDS = deck ? deck.words : []; }
   saveDecks(); saveHistory();
   if (screen === "home") goHome(); else if (screen === "decks") goDecks(); else if (screen === "history") goHistory();
 }
@@ -953,7 +981,7 @@ function goHistory() {
   stopTimer(); screen = "history";
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   state = null;
-  const list = histFilter === "deck" ? records.filter(r => r.deckId === deck.id) : records;
+  const list = histFilter === "deck" && deck ? records.filter(r => r.deckId === deck.id) : records;
   const avg = list.length ? Math.round(list.reduce((a, r) => a + pctOf(r), 0) / list.length) : 0;
   const days = new Set(list.map(r => new Date(r.date).toDateString())).size;
   const cnt = new Map();   // 자주 틀린 단어
